@@ -3,6 +3,8 @@ package io.github.barnardb.infrajav.grpc.test;
 import io.github.barnardb.infrajav.grpc.ActiveNameResolverFactory;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.NameResolverProvider;
+import io.grpc.internal.DnsNameResolverProvider;
 import io.grpc.util.RoundRobinLoadBalancerFactory;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +16,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 public class ChannelIntegrationTest {
+
+    @Test
+    public void shouldWorkWithLocalhostWhenWrappingStandardResolver() {
+        withLocalIdServer("A", aPort -> {
+            ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", aPort)
+                    .nameResolverFactory(new ActiveNameResolverFactory(1, SECONDS))
+                    .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
+                    .usePlaintext()
+                    .build();
+            assertThat(getId(channel), is("A"));
+        });
+    }
 
     @Test
     public void shouldActivelyRefreshSubchannels() {

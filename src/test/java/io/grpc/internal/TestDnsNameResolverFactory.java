@@ -29,12 +29,13 @@ public class TestDnsNameResolverFactory extends NameResolver.Factory {
     @Override
     public NameResolver newNameResolver(URI targetUri, Attributes params) {
         DnsNameResolver nameResolver = dnsNameResolverProvider.newNameResolver(targetUri, params);
-        nameResolver.setAddressResolver(name -> {
-            List<InetAddress> resolvedAddresses = addresses.get(name);
-            if (resolvedAddresses == null)
-                throw new UnknownHostException("Can't resolve " + name);
-            return resolvedAddresses;
-        });
+        if (nameResolver != null)
+            nameResolver.setAddressResolver(name -> {
+                List<InetAddress> resolvedAddresses = addresses.get(name);
+                if (resolvedAddresses == null)
+                    throw new UnknownHostException("Can't resolve " + name);
+                return resolvedAddresses;
+            });
         return nameResolver;
     }
 

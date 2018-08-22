@@ -2,6 +2,7 @@ package io.github.barnardb.infrajav.grpc;
 
 import io.grpc.Attributes;
 import io.grpc.NameResolver;
+import io.grpc.NameResolverProvider;
 import io.grpc.internal.GrpcUtil;
 
 import javax.annotation.Nullable;
@@ -18,6 +19,16 @@ public class ActiveNameResolverFactory extends NameResolver.Factory {
     private final ScheduledExecutorService scheduledExecutorService;
     private final int maxRefreshInterval;
     private final TimeUnit timeUnit;
+
+    /**
+     * Creates a new ActiveNameResolver using the default NameResolverProvider the shared GRPC {@link GrpcUtil#TIMER_SERVICE}.
+     *
+     * @param maxRefreshInterval the duration of time (in {@code timeUnit}s) since the last refresh after which we should trigger a new refresh
+     * @param timeUnit           the time unit for the {@code maxRefreshInterval}
+     */
+    public ActiveNameResolverFactory(int maxRefreshInterval, TimeUnit timeUnit) {
+        this(NameResolverProvider.asFactory(), maxRefreshInterval, timeUnit);
+    }
 
     /**
      * Creates a new ActiveNameResolver using the shared GRPC {@link GrpcUtil#TIMER_SERVICE}.

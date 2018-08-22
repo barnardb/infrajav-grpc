@@ -2,6 +2,8 @@
 
 Utilities for grpc-java.
 
+[![Build Status](https://travis-ci.org/barnardb/infrajav-grpc.svg?branch=master)](https://travis-ci.org/barnardb/infrajav-grpc)
+
 ## `ActiveNameResolverFactory`
 
 Provides an active `NameResolver` that can be used to ensure that a GRPC channel target keeps its subchannels in sync with resolved addresses.

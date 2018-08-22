@@ -20,7 +20,7 @@ public class ActiveNameResolver extends NameResolver {
     private final ScheduledExecutorService scheduledExecutorService;
     private final int maxRefreshInterval;
     private final TimeUnit timeUnit;
-    private final AtomicReference<ScheduledFuture> scheduledRefresh;
+    private final AtomicReference<ScheduledFuture<?>> scheduledRefresh;
     private boolean closed;
 
     /**
@@ -49,6 +49,7 @@ public class ActiveNameResolver extends NameResolver {
 
     @Override
     public void start(Listener listener) {
+        System.err.println("STARTING WERFWERGWERG");
         if (closed) {
             throw new IllegalStateException("closed");
         }
@@ -83,7 +84,7 @@ public class ActiveNameResolver extends NameResolver {
     }
 
     private void setScheduledRefreshFuture(ScheduledFuture<?> scheduledRefresh) {
-        ScheduledFuture previouslyScheduledRefresh = this.scheduledRefresh.getAndSet(scheduledRefresh);
+        ScheduledFuture<?> previouslyScheduledRefresh = this.scheduledRefresh.getAndSet(scheduledRefresh);
         if (previouslyScheduledRefresh != null)
             previouslyScheduledRefresh.cancel(false);
     }

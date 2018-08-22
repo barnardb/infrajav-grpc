@@ -23,6 +23,11 @@ dependencies {
     testImplementation("org.awaitility:awaitility:3.1.1")
 }
 
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("-Xlint:all")
+    options.compilerArgs.add("-Werror")
+}
+
 tasks.getByName<Test>("test") {
     useJUnitPlatform()
 }

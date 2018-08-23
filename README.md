@@ -3,6 +3,7 @@
 Utilities for grpc-java.
 
 [![Build Status](https://travis-ci.org/barnardb/infrajav-grpc.svg?branch=master)](https://travis-ci.org/barnardb/infrajav-grpc)
+[![Download](https://api.bintray.com/packages/barnardb/maven/infrajav-grpc/images/download.svg)](https://bintray.com/barnardb/maven/infrajav-grpc/_latestVersion)
 
 ## `ActiveNameResolverFactory`
 

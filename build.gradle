@@ -1,0 +1,118 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'com.jfrog.bintray' version '1.8.4'
+}
+
+group = 'io.github.barnardb'
+description = 'Utilities for grpc-java'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    def grpc = { name -> "io.grpc:grpc-$name:1.14.0" }
+    api(grpc('core'))
+    testImplementation(grpc('testing')) {
+        exclude group: 'junit', module: 'junit'
+    }
+    testRuntimeOnly(grpc('netty'))
+
+    def junitJupiter = { name -> "org.junit.jupiter:junit-jupiter-$name:5.1.0" }
+    testImplementation(junitJupiter('api'))
+    testRuntimeOnly(junitJupiter('engine'))
+
+    testImplementation('org.awaitility:awaitility:3.1.1')
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add('-Xlint:all')
+    options.compilerArgs.add('-Werror')
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+def pomConfig = {
+    licenses {
+        license {
+            name "The Apache Software License, Version 2.0"
+            url "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            distribution "repo"
+        }
+    }
+    scm {
+        url 'https://github.com/barnardb/infrajav-grpc.git'
+        connection 'scm:git:https://github.com/barnardb/infrajav-grpc.git'
+        developerConnection 'scm:git:ssh://github.com/barnardb/infrajav-grpc.git'
+    }
+    issueManagement {
+        system 'GitHub'
+        url 'https://github.com/barnardb/infrajav-grpc/issues'
+    }
+    ciManagement {
+        system 'Travis CI'
+        url 'https://travis-ci.org/barnardb/infrajav-grpc'
+    }
+    developers {
+        developer {
+            id 'barnardb'
+            name 'Ben Barnard'
+            email 'barnardb@gmail.com'
+        }
+    }
+}
+
+publishing {
+    publications {
+        MyPublication(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('name', project.name)
+                root.appendNode('description', description)
+                root.appendNode('url', 'https://github.com/barnardb/infrajav-grpc')
+                root.children().last() + pomConfig
+            }
+        }
+    }
+}
+
+bintray {
+    user = findProperty('bintrayUser')
+    key = findProperty('bintrayApiKey')
+
+    publications = ['MyPublication']
+
+    pkg {
+        repo = 'maven'
+        name = 'infrajav-grpc'
+        desc = project.description
+        websiteUrl = "https://github.com/barnardb/${name}"
+        vcsUrl = "${websiteUrl}.git"
+        issueTrackerUrl = "${websiteUrl}/issues"
+        setLicenses('Apache-2.0')
+
+        version {
+            name = "${project.version}"
+            released = new Date()
+            vcsTag = "v${project.version}"
+        }
+    }
+
+    publish = true
+}

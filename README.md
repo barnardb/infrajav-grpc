@@ -7,48 +7,43 @@ Utilities for grpc-java.
 
 ## `ActiveNameResolverFactory`
 
-Provides an active `NameResolver` that can be used to ensure that a GRPC channel target keeps its subchannels in sync with resolved addresses.
+An `ActiveNameResolverFactory` is an active `NameResolver` that periodically retriggers name resolution. When used together with a `RoundRobinLoadBalancerFactory`, this ensures that a grpc-java channel keeps a subchannel open to each address currently being returned by a name resolver, even in the absense of channel closures of failures. This means that if you have a DNS name that resolves to one IP address per node in a cluster (e.g. such as the DNS name of a headless service in Kubernetes), you can straightforwardly do client-side load balancing with grpc-java. Even if your DNS name only resolves to one address, it also allows you to respond to changes in the DNS record even when the old address is still serving requests.
 
-For example, suppose you want to connect to a GRPC server available at `service.example.com` on port 8443.
-A common way would be to create a channel like this:
+### When and How to Use
 
-```java
-ManagedChannel channel = ManagedChannelBuilder.forAddress("service.example.com", 8443)
-        .build();
-```
+#### Client-Side Load Balancing
 
-If there is a single GRPC server,
-or if `service.example.com` resolves to a single IP address for a level 7 (HTTP/2) load balancer,
-this is an appropriate way to set up the channel.
+Use the `ActiveNameResolverFactory` when:
+- The GRPC service you want to connect to has instances running multiple hosts.
+- It doesn't matter which instance each GRPC call is served by.
+- Your client application can connect directly to each host running the service.
+- You have a (DNS) name that resolves to one address per instance.
 
-However, if `service.example.com` resolves to a list of IP addresses,
-we may want to do client-side load balancing, distributing our requests across the addresses
-and recovering gracefully from problems with a connection to one of the addresses.
-By default GRPC will just connect use the first address returned by the DNS resolver,
-but we can tell it to open a subchannel (connection) for each address and do round-robin load balancing of outgoing requests:
+If all of these conditions hold, you may well benefit by setting up your GRPC channel for client-side load balancing, like this:
 
 ```java
 ManagedChannel channel = ManagedChannelBuilder.forAddress("service.example.com", 8443)
         .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
+        .nameResolverFactory(new ActiveNameResolverFactory(2, MINUTES))
         .build();
 ```
 
-Great! But what happens when the list of addresses returned by DNS changes?
-GRPC won't detect this automatically.
-If there is a problem with one of the connections, it will re-resolve,
-and update the set of subchannels, closing and creating them as necessary.
-So if new addresses are used by new servers after deploying a new version,
-GRPC will start to notice these as the old servers stop serving requests.
-Also if the cluster scales down, it will notice this as the old servers stop serving requests.
-But what if your cluster scales up due to increased load?
-The old servers continue to work, so there's nothing to signal to GRPC that new servers are available.
+If you only used the load balancer by not the active name resolver, your GRPC channel would only re-resolve the name when one of it's existing connections dies. This would work well during rolling deployments or when a cluster is scaling down, as there will regularly be a small number of nodes closing their connections, triggering name-resolution and the establishment of new connections to any new nodes (in the deployment scenario). But what if the cluster scales up and adds new nodes? If none of the old nodes go away, your GRPC channel won't detect any events that would cause it to retrigger name resolution, so it won't be able to start sending traffic to those new nodes. That's why the `ActiveNameResolverFactory` is necessary to complete the client-side load balancing solution.
 
-This is where `ActiveNameResolverFactory` come in.
-It periodically triggers a DNS resolution, ensuring that GRPC opens new subchannels and starts using new servers.
+A load balancer factory of some kind is also necessary, becauae by default GRPC will just connect use the first address returned by the DNS resolver, rather than to all of them. Hence the `RoundRobinLoadBalancerFactory` above.
+
+#### Responding to DNS Changes
+
+Your GRPC channel may only have a single subchannel connected to a single address, such as when the GRPC service you are connecting to is running on a single host, or is behind a level 7 (HTTP/2) load balancer. In this situation you don't need a client-side load balancer, and you may be fine without an active name resolver.
+
+If the remote service signals that it's closing the connection or if the connection dies, GRPC will trigger a name re-resolution. So if a new deployment happens by bringing node B up, changing the DNS record to point to B instead of A, and then shutting A down, when your GRPC channel loses its connection to A it will re-resolve the name and open a connection to B.
+
+But what if you want to leave node A fully up and running, perhaps to try to understand how it got into some anomalous state.?In this case, your client application may still remain happily connected to A, and fail to notice that the DNS name for the server now exclusily resolves to B's address.
+
+By using an `ActiveNameResolverFactory`, you ensure your GRPC channel will pick up on DNS changes an act on them in a timely manner.
 
 ```java
 ManagedChannel channel = ManagedChannelBuilder.forAddress("service.example.com", 8443)
-        .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
         .nameResolverFactory(new ActiveNameResolverFactory(2, MINUTES))
         .build();
 ```

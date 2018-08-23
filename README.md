@@ -7,7 +7,7 @@ Utilities for grpc-java.
 
 ## `ActiveNameResolverFactory`
 
-An `ActiveNameResolverFactory` is an active `NameResolver` that periodically retriggers name resolution. When used together with a `RoundRobinLoadBalancerFactory`, this ensures that a grpc-java channel keeps a subchannel open to each address currently being returned by a name resolver, even in the absense of channel closures of failures. This means that if you have a DNS name that resolves to one IP address per node in a cluster (e.g. such as the DNS name of a headless service in Kubernetes), you can straightforwardly do client-side load balancing with grpc-java. Even if your DNS name only resolves to one address, it also allows you to respond to changes in the DNS record even when the old address is still serving requests.
+infrajav-grpc provides an `ActiveNameResolverFactory` class, which creates active GRPC `NameResolver`s that periodically retrigger name resolution. When used together with a `RoundRobinLoadBalancerFactory`, this ensures that a grpc-java channel keeps a subchannel open to each address currently being returned by a name resolver, even in the absense of channel closures of failures. This means that if you have a DNS name that resolves to one IP address per node in a cluster (e.g. such as the DNS name of a headless service in Kubernetes), you can straightforwardly do client-side load balancing with grpc-java. Even if your DNS name only resolves to one address, it also allows you to respond to changes in the DNS record even when the old address is still serving requests.
 
 ### When and How to Use
 

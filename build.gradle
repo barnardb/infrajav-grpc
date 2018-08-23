@@ -19,11 +19,11 @@ dependencies {
     }
     testRuntimeOnly(grpc('netty'))
 
-    def junitJupiter = { name -> "org.junit.jupiter:junit-jupiter-$name:5.1.0" }
+    def junitJupiter = { name -> "org.junit.jupiter:junit-jupiter-$name:5.2.0" }
     testImplementation(junitJupiter('api'))
     testRuntimeOnly(junitJupiter('engine'))
 
-    testImplementation('org.awaitility:awaitility:3.1.1')
+    testImplementation('org.awaitility:awaitility:3.1.2')
 }
 
 tasks.withType(JavaCompile) {

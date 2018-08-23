@@ -5,10 +5,12 @@ import io.grpc.internal.GrpcUtil;
 import io.grpc.internal.SharedResourceHolder;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * A NameResolver that delegates to an underlying resolver, actively refreshing if too much time has elapsed since the last refresh.
@@ -20,8 +22,11 @@ public class ActiveNameResolver extends NameResolver {
     private final ScheduledExecutorService scheduledExecutorService;
     private final int maxRefreshInterval;
     private final TimeUnit timeUnit;
-    private final AtomicReference<ScheduledFuture<?>> scheduledRefresh;
-    private boolean closed;
+
+    @GuardedBy("this")
+    private ScheduledFuture<?> scheduledRefresh;
+    @GuardedBy("this")
+    private boolean shutdown;
 
     /**
      * Creates a new ActiveNameResolver.
@@ -39,7 +44,6 @@ public class ActiveNameResolver extends NameResolver {
                 : scheduledExecutorService;
         this.maxRefreshInterval = maxRefreshInterval;
         this.timeUnit = timeUnit;
-        this.scheduledRefresh = new AtomicReference<>();
     }
 
     @Override
@@ -48,30 +52,31 @@ public class ActiveNameResolver extends NameResolver {
     }
 
     @Override
-    public void start(Listener listener) {
-        if (closed) {
-            throw new IllegalStateException("closed");
-        }
+    public synchronized void start(Listener listener) {
+        checkState(!shutdown, "already shutdown");
+        checkState(scheduledRefresh == null, "already started");
         underlyingNameResolver.start(listener);
         scheduleRefresh();
     }
 
     @Override
-    public void refresh() {
-        if (closed) {
-            throw new IllegalStateException("closed");
-        }
-        setScheduledRefreshFuture(null);
+    public synchronized void refresh() {
+        checkState(!shutdown, "already shutdown");
+        checkState(scheduledRefresh != null, "not yet started");
+        scheduledRefresh.cancel(false);
         underlyingNameResolver.refresh();
         scheduleRefresh();
     }
 
     @Override
-    public void shutdown() {
-        if (closed) {
+    public synchronized void shutdown() {
+        if (shutdown) {
             return;
         }
-        closed = true;
+        shutdown = true;
+        if (scheduledRefresh != null) {
+            scheduledRefresh.cancel(true);
+        }
         if (isUsingSharedTimerService) {
             SharedResourceHolder.release(GrpcUtil.TIMER_SERVICE, scheduledExecutorService);
         }
@@ -79,13 +84,7 @@ public class ActiveNameResolver extends NameResolver {
     }
 
     private void scheduleRefresh() {
-        setScheduledRefreshFuture(scheduledExecutorService.schedule(this::refresh, maxRefreshInterval, timeUnit));
-    }
-
-    private void setScheduledRefreshFuture(ScheduledFuture<?> scheduledRefresh) {
-        ScheduledFuture<?> previouslyScheduledRefresh = this.scheduledRefresh.getAndSet(scheduledRefresh);
-        if (previouslyScheduledRefresh != null)
-            previouslyScheduledRefresh.cancel(false);
+        this.scheduledRefresh = scheduledExecutorService.schedule(this::refresh, maxRefreshInterval, timeUnit);
     }
 
 }

@@ -49,7 +49,6 @@ public class ActiveNameResolver extends NameResolver {
 
     @Override
     public void start(Listener listener) {
-        System.err.println("STARTING WERFWERGWERG");
         if (closed) {
             throw new IllegalStateException("closed");
         }

@@ -38,7 +38,7 @@ Your GRPC channel may only have a single subchannel connected to a single addres
 
 If the remote service signals that it's closing the connection or if the connection dies, GRPC will trigger a name re-resolution. So if a new deployment happens by bringing node B up, changing the DNS record to point to B instead of A, and then shutting A down, when your GRPC channel loses its connection to A it will re-resolve the name and open a connection to B.
 
-But what if you want to leave node A fully up and running, perhaps to try to understand how it got into some anomalous state.?In this case, your client application may still remain happily connected to A, and fail to notice that the DNS name for the server now exclusily resolves to B's address.
+But what if you want to leave node A fully up and running, perhaps to try to understand how it got into some anomalous state? In this case, your client application may still remain happily connected to A, and fail to notice that the DNS name for the server now exclusily resolves to B's address.
 
 By using an `ActiveNameResolverFactory`, you ensure your GRPC channel will pick up on DNS changes an act on them in a timely manner.
 

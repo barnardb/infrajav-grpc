@@ -3,8 +3,6 @@ package io.github.barnardb.infrajav.grpc.test;
 import io.github.barnardb.infrajav.grpc.ActiveNameResolverFactory;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.NameResolverProvider;
-import io.grpc.internal.DnsNameResolverProvider;
 import io.grpc.util.RoundRobinLoadBalancerFactory;
 import org.junit.jupiter.api.Test;
 

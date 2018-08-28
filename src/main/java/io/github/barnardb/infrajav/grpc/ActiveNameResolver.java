@@ -9,6 +9,8 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -16,6 +18,8 @@ import static com.google.common.base.Preconditions.checkState;
  * A NameResolver that delegates to an underlying resolver, actively refreshing if too much time has elapsed since the last refresh.
  */
 public class ActiveNameResolver extends NameResolver {
+
+    private static final Logger logger = Logger.getLogger(ActiveNameResolver.class.getName());
 
     private final NameResolver underlyingNameResolver;
     private final boolean isUsingSharedTimerService;
@@ -63,7 +67,10 @@ public class ActiveNameResolver extends NameResolver {
     public synchronized void refresh() {
         checkState(!shutdown, "already shutdown");
         checkState(scheduledRefresh != null, "not yet started");
+
         scheduledRefresh.cancel(false);
+
+        logger.log(Level.FINE, "Triggering explicitly requested refresh");
         underlyingNameResolver.refresh();
         scheduleRefresh();
     }
@@ -75,7 +82,7 @@ public class ActiveNameResolver extends NameResolver {
         }
         shutdown = true;
         if (scheduledRefresh != null) {
-            scheduledRefresh.cancel(true);
+            scheduledRefresh.cancel(false);
         }
         if (isUsingSharedTimerService) {
             SharedResourceHolder.release(GrpcUtil.TIMER_SERVICE, scheduledExecutorService);
@@ -84,7 +91,16 @@ public class ActiveNameResolver extends NameResolver {
     }
 
     private void scheduleRefresh() {
-        this.scheduledRefresh = scheduledExecutorService.schedule(this::refresh, maxRefreshInterval, timeUnit);
+        this.scheduledRefresh = scheduledExecutorService.schedule(this::performScheduledRefresh, maxRefreshInterval, timeUnit);
+    }
+
+    private synchronized void performScheduledRefresh() {
+        if (shutdown) {
+            return;
+        }
+        logger.log(Level.FINE, "Triggering scheduled refresh");
+        underlyingNameResolver.refresh();
+        scheduleRefresh();
     }
 
 }

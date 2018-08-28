@@ -1,5 +1,6 @@
 package io.github.barnardb.infrajav.grpc.test;
 
+import io.github.barnardb.infrajav.grpc.ActiveNameResolver;
 import io.github.barnardb.infrajav.grpc.ActiveNameResolverFactory;
 import io.grpc.Attributes;
 import io.grpc.EquivalentAddressGroup;
@@ -22,39 +23,111 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class ActiveNameResolverTest {
 
     @Test
+    public void shouldResolveWhenExplicitlyRequested() throws Exception {
+        TestDnsNameResolverFactory underlyingFactory = new TestDnsNameResolverFactory();
+        InetAddress initialAddress = InetAddress.getByAddress(new byte[]{1, 1, 1, 1});
+        underlyingFactory.setAddresses("foo", initialAddress);
+
+        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 100, TimeUnit.SECONDS);
+
+        try (TestLogHandler log = TestLogHandler.forClass(ActiveNameResolver.class)) {
+            NameResolver nameResolver = factory.newNameResolver(new URI("dns:///foo:1234"), null);
+            try {
+                CapturingListener listener = new CapturingListener();
+                nameResolver.start(listener);
+
+                waitAtMost(50, TimeUnit.MILLISECONDS)
+                        .pollDelay(10, TimeUnit.MILLISECONDS)
+                        .ignoreExceptionsInstanceOf(AssertionError.class)
+                        .until(() -> {
+                            assertAll("Receives initial host",
+                                    () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(initialAddress, 1234)))),
+                                    () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
+                                    () -> assertThat("error", listener.error, nullValue())
+                            );
+                            return true;
+                        });
+
+                InetAddress updatedAddress = InetAddress.getByAddress(new byte[]{2, 2, 2, 2});
+                underlyingFactory.setAddresses("foo", updatedAddress);
+
+                assertThat(log.records, hasSize(0));
+
+                nameResolver.refresh();
+
+                assertThat(log.records.remove(0).getMessage(), is("Triggering explicitly requested refresh"));
+
+                waitAtMost(50, TimeUnit.MILLISECONDS)
+                        .pollDelay(10, TimeUnit.MILLISECONDS)
+                        .ignoreExceptionsInstanceOf(AssertionError.class)
+                        .until(() -> {
+                            assertAll("Receives updated host",
+                                    () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(updatedAddress, 1234)))),
+                                    () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
+                                    () -> assertThat("error", listener.error, nullValue())
+                            );
+                            return true;
+                        });
+
+            } finally {
+                nameResolver.shutdown();
+            }
+            assertThat(log.records, hasSize(0));
+        }
+    }
+
+    @Test
     public void shouldActivelyResolve() throws Exception {
         TestDnsNameResolverFactory underlyingFactory = new TestDnsNameResolverFactory();
         InetAddress initialAddress = InetAddress.getByAddress(new byte[]{1, 1, 1, 1});
         underlyingFactory.setAddresses("foo", initialAddress);
 
-        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 100, TimeUnit.MILLISECONDS);
-        NameResolver nameResolver = factory.newNameResolver(new URI("dns:///foo:1234"), null);
-        try {
-            CapturingListener listener = new CapturingListener();
-            nameResolver.start(listener);
+        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 300, TimeUnit.MILLISECONDS);
 
-            waitAtMost(1, TimeUnit.SECONDS).ignoreExceptionsInstanceOf(AssertionError.class).until(() -> {
-                assertAll("Receives initial host",
-                        () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(initialAddress, 1234)))),
-                        () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
-                        () -> assertThat("error", listener.error, nullValue())
-                );
-                return true;
-            });
+        try (TestLogHandler log = TestLogHandler.forClass(ActiveNameResolver.class)) {
+            NameResolver nameResolver = factory.newNameResolver(new URI("dns:///foo:1234"), null);
+            try {
+                CapturingListener listener = new CapturingListener();
+                nameResolver.start(listener);
 
-            InetAddress updatedAddress = InetAddress.getByAddress(new byte[]{2, 2, 2, 2});
-            underlyingFactory.setAddresses("foo", updatedAddress);
+                waitAtMost(50, TimeUnit.MILLISECONDS)
+                        .pollDelay(10, TimeUnit.MILLISECONDS)
+                        .ignoreExceptionsInstanceOf(AssertionError.class)
+                        .until(() -> {
+                            assertAll("Receives initial host",
+                                    () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(initialAddress, 1234)))),
+                                    () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
+                                    () -> assertThat("error", listener.error, nullValue())
+                            );
+                            return true;
+                        });
 
-            waitAtMost(1, TimeUnit.SECONDS).ignoreExceptionsInstanceOf(AssertionError.class).until(() -> {
-                assertAll("Receives updated host",
-                        () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(updatedAddress, 1234)))),
-                        () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
-                        () -> assertThat("error", listener.error, nullValue())
-                );
-                return true;
-            });
-        } finally {
-            nameResolver.shutdown();
+                InetAddress updatedAddress = InetAddress.getByAddress(new byte[]{2, 2, 2, 2});
+                underlyingFactory.setAddresses("foo", updatedAddress);
+
+                assertThat(log.records, hasSize(0));
+
+                waitAtMost(350, TimeUnit.MILLISECONDS)
+                        .pollDelay(10, TimeUnit.MILLISECONDS)
+                        .ignoreExceptionsInstanceOf(IndexOutOfBoundsException.class)
+                        .until(() -> log.records.remove(0).getMessage(), is("Triggering scheduled refresh"));
+
+                waitAtMost(50, TimeUnit.MILLISECONDS)
+                        .pollDelay(10, TimeUnit.MILLISECONDS)
+                        .ignoreExceptionsInstanceOf(AssertionError.class)
+                        .until(() -> {
+                            assertAll("Receives updated host",
+                                    () -> assertThat("servers", listener.servers, hasItems(new EquivalentAddressGroup(new InetSocketAddress(updatedAddress, 1234)))),
+                                    () -> assertThat("attributes", listener.attributes, is(Attributes.EMPTY)),
+                                    () -> assertThat("error", listener.error, nullValue())
+                            );
+                            return true;
+                        });
+
+            } finally {
+                nameResolver.shutdown();
+            }
+            assertThat(log.records, hasSize(0));
         }
     }
 

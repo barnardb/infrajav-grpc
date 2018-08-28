@@ -1,6 +1,9 @@
 plugins {
     id 'java-library'
+
     id 'findbugs'
+    id 'jacoco'
+
     id 'maven-publish'
     id 'com.jfrog.bintray' version '1.8.4'
 }
@@ -35,6 +38,13 @@ tasks.withType(JavaCompile) {
 test {
     useJUnitPlatform()
 }
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+    }
+}
+check.dependsOn jacocoTestReport
 
 task sourcesJar(type: Jar) {
     classifier = 'sources'

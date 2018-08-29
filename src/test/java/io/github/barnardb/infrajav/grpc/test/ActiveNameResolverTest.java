@@ -18,6 +18,7 @@ import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class ActiveNameResolverTest {
@@ -73,6 +74,7 @@ class ActiveNameResolverTest {
                 nameResolver.shutdown();
             }
             assertThat(log.records, hasSize(0));
+            assertThrows(IllegalStateException.class, nameResolver::refresh);
         }
     }
 

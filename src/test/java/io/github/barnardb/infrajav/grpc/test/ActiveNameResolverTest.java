@@ -82,7 +82,7 @@ class ActiveNameResolverTest {
         InetAddress initialAddress = InetAddress.getByAddress(new byte[]{1, 1, 1, 1});
         underlyingFactory.setAddresses("foo", initialAddress);
 
-        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 300, TimeUnit.MILLISECONDS);
+        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 500, TimeUnit.MILLISECONDS);
 
         try (TestLogHandler log = TestLogHandler.forClass(ActiveNameResolver.class)) {
             NameResolver nameResolver = factory.newNameResolver(new URI("dns:///foo:1234"), null);
@@ -107,7 +107,7 @@ class ActiveNameResolverTest {
 
                 assertThat(log.records, hasSize(0));
 
-                waitAtMost(350, TimeUnit.MILLISECONDS)
+                waitAtMost(550, TimeUnit.MILLISECONDS)
                         .pollDelay(10, TimeUnit.MILLISECONDS)
                         .ignoreExceptionsInstanceOf(IndexOutOfBoundsException.class)
                         .until(() -> log.records.remove(0).getMessage(), is("Triggering scheduled refresh"));

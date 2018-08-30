@@ -82,7 +82,7 @@ class ActiveNameResolverTest {
         InetAddress initialAddress = InetAddress.getByAddress(new byte[]{1, 1, 1, 1});
         underlyingFactory.setAddresses("foo", initialAddress);
 
-        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 500, TimeUnit.MILLISECONDS);
+        NameResolver.Factory factory = new ActiveNameResolverFactory(underlyingFactory, 1000, TimeUnit.MILLISECONDS);
 
         try (TestLogHandler log = TestLogHandler.forClass(ActiveNameResolver.class)) {
             NameResolver nameResolver = factory.newNameResolver(new URI("dns:///foo:1234"), null);
@@ -90,7 +90,7 @@ class ActiveNameResolverTest {
                 CapturingListener listener = new CapturingListener();
                 nameResolver.start(listener);
 
-                waitAtMost(50, TimeUnit.MILLISECONDS)
+                waitAtMost(100, TimeUnit.MILLISECONDS)
                         .pollDelay(10, TimeUnit.MILLISECONDS)
                         .ignoreExceptionsInstanceOf(AssertionError.class)
                         .until(() -> {
@@ -107,12 +107,12 @@ class ActiveNameResolverTest {
 
                 assertThat(log.records, hasSize(0));
 
-                waitAtMost(550, TimeUnit.MILLISECONDS)
+                waitAtMost(1000, TimeUnit.MILLISECONDS)
                         .pollDelay(10, TimeUnit.MILLISECONDS)
                         .ignoreExceptionsInstanceOf(IndexOutOfBoundsException.class)
                         .until(() -> log.records.remove(0).getMessage(), is("Triggering scheduled refresh"));
 
-                waitAtMost(50, TimeUnit.MILLISECONDS)
+                waitAtMost(100, TimeUnit.MILLISECONDS)
                         .pollDelay(10, TimeUnit.MILLISECONDS)
                         .ignoreExceptionsInstanceOf(AssertionError.class)
                         .until(() -> {
